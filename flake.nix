@@ -24,6 +24,11 @@
           # hPkgs.cabal-install
           stack-wrapped
           pkgs.zlib # External C library needed by some Haskell packages
+          # runtime deps for testing in dev environment
+          pkgs.graphviz
+          # for work on tree-sitter
+          pkgs.tree-sitter
+          pkgs.nodejs_22
         ];
 
         # from https://github.com/NixOS/nixpkgs/blob/nixos-unstable/pkgs/applications/science/logic/tamarin-prover/default.nix#L27
