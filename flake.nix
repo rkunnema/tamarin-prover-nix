@@ -5,9 +5,13 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     flake-utils.url = "github:numtide/flake-utils";
+    tamarin-frontend = {
+      url = "path:./frontend";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, flake-utils, tamarin-frontend, ... }: flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs {
         system = system;
@@ -19,12 +23,44 @@
       # tamarinRev = "b93c7a33fed67a713a90039fce0c4d94def23bd0"; some commit in dev
       tamarinRev = "becd485526d50424ce6ce75d12b70f6558cf8e4b"; # https://github.com/tamarin-prover/tamarin-prover/pull/805#pullrequestreview-3660147475
 
-      src = pkgs.fetchFromGitHub {
+      rawSrc = pkgs.fetchFromGitHub {
         owner = "tamarin-prover";
         repo = "tamarin-prover";
         rev = tamarinRev;
         hash = "sha256-IDQ3jLvWq+ZY4ee7FmukOuRvdASLhhZ3lBmmFkysglQ";
       };
+
+      frontendPkg = # we use front-end flake to build the front-end stuff
+        tamarin-frontend.packages.${system}.frontend;
+
+      # specify files from front-end we want to copy into tamarin's src
+      # directory before the haskell build
+      # .. if this fails checkout if theres updates to the Makefile
+      frontendOverlay = pkgs.linkFarm "tamarin-frontend-overlay" [
+          {
+            name = "data/js/intdot-graph.es.js";
+            path = "${frontendPkg}/js/intdot-graph.es.js";
+          }
+          {
+            name = "data/js/intdot-staticgraph.es.js";
+            path = "${frontendPkg}/js/intdot-staticgraph.es.js";
+          }
+          {
+            name = "data/js/intdot-dynamicgraph.es.js";
+            path = "${frontendPkg}/js/intdot-dynamicgraph.es.js";
+          }
+          {
+            name = "data/css/intdot-style.css";
+            path = "${frontendPkg}/css/intdot-style.css";
+          }
+        ];
+
+      srcWithFrontend = pkgs.symlinkJoin {
+        name = "tamarin-src-with-frontend";
+        paths = [ rawSrc frontendOverlay ];
+      };
+
+      src = srcWithFrontend;
 
       hsPkgs = pkgs.haskell.packages.ghc96;
 
